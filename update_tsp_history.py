@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download TSP's 5 days export and merge it into a historical CSV."""
+"""Merge TSP share prices into a historical CSV from the browser or a local export."""
 
 import argparse
 import csv
@@ -38,12 +38,15 @@ def read_prices(path: Path, *, recent: bool = False):
         for row in reader:
             if not any(cell.strip() for cell in row):
                 continue
-            if len(row) != len(header):
+            # TSP omits trailing Lifecycle columns on some historical rows.
+            if len(row) > len(header):
                 raise ValueError(f"{path.name} has an invalid row at line {reader.line_num}.")
             price_date = parse_date(row[0].strip())
             if price_date in prices:
                 raise ValueError(f"{path.name} repeats {price_date}.")
             values = dict(zip(funds, (cell.strip() for cell in row[1:])))
+            if not CORE_FUNDS.issubset(values):
+                raise ValueError(f"{path.name} is missing core fund prices on {price_date}.")
             for fund, value in values.items():
                 if value or fund in CORE_FUNDS:
                     try:
@@ -88,8 +91,10 @@ def download_csv(output: Path, headless: bool) -> None:
         pending.value.save_as(output)
 
 
-def merge_history(export: Path, history: Path, candidate: Path) -> bool:
-    recent_funds, recent_prices = read_prices(export, recent=True)
+def merge_history(
+    export: Path, history: Path, candidate: Path, *, require_five_days: bool = True
+) -> bool:
+    recent_funds, recent_prices = read_prices(export, recent=require_five_days)
     if history.exists():
         funds, prices = read_prices(history)
     else:
@@ -114,27 +119,39 @@ def merge_history(export: Path, history: Path, candidate: Path) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("tsp-share-price-history.csv"))
+    parser.add_argument("--input-csv", type=Path, help="Merge a local TSP CSV without opening a browser.")
     parser.add_argument("--headless", action="store_true", help="Hide the browser window.")
     args = parser.parse_args()
-    try:
-        from playwright.sync_api import Error as PlaywrightError
-    except ImportError:
-        parser.exit(1, "Install Playwright with python3 -m pip install --upgrade playwright.\n")
 
     history = args.output.resolve()
     try:
+        if args.input_csv and args.input_csv.resolve() == history:
+            raise ValueError("Choose separate paths for the input export and historical CSV.")
         history.parent.mkdir(parents=True, exist_ok=True)
         # Lock the output directory without leaving a lock file in the repository.
         with TemporaryDirectory(dir=history.parent) as temporary:
             lock = os.open(history.parent, os.O_RDONLY)
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX)
-                export = Path(temporary) / "download.csv"
-                download_csv(export, args.headless)
-                changed = merge_history(export, history, Path(temporary) / "merged.csv")
+                workspace = Path(temporary)
+                export = args.input_csv
+                if export is None:
+                    try:
+                        from playwright.sync_api import Error as PlaywrightError
+                    except ImportError:
+                        raise ValueError("Install Playwright or provide an export with --input-csv.") from None
+                    export = workspace / "download.csv"
+                    try:
+                        download_csv(export, args.headless)
+                    except PlaywrightError as error:
+                        raise ValueError(str(error)) from error
+                changed = merge_history(
+                    export, history, workspace / "merged.csv",
+                    require_five_days=args.input_csv is None,
+                )
             finally:
                 os.close(lock)
-    except (PlaywrightError, OSError, ValueError, csv.Error) as error:
+    except (OSError, ValueError, csv.Error) as error:
         parser.exit(1, f"TSP update failed: {error}\n")
     print(f"{'Updated' if changed else 'No changes to'} {history}")
     return 0
