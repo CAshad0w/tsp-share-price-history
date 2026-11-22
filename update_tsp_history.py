@@ -71,9 +71,13 @@ def download_csv(output: Path, headless: bool) -> None:
             raise ValueError(f"TSP returned HTTP {response.status}.")
 
         page.get_by_text("All share prices", exact=True).filter(visible=True).first.click()
-        time_frame = page.get_by_text("Time frame", exact=True).filter(visible=True)
-        time_frame.click()
-        page.get_by_text("5 days", exact=True).filter(visible=True).click()
+        time_frame = page.locator(
+            '[data-component="timeframe-filter"][data-tab-type="all-prices"]'
+        ).filter(visible=True)
+        time_frame.locator(
+            'button, [role="button"], [role="combobox"], [aria-expanded]'
+        ).filter(visible=True).first.click()
+        time_frame.get_by_text("5 days", exact=True).filter(visible=True).click()
         applied_filter = re.compile(r"^From (?:Last )?5 Days$", re.I)
         page.get_by_text(applied_filter).filter(visible=True).wait_for()
         page.get_by_text("Actions", exact=True).filter(visible=True).click()
