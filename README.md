@@ -38,3 +38,13 @@ python3 -m venv .venv
 
 The script opens Chromium by default. Add `--headless` for unattended runs
 after verifying that mode works on your machine.
+
+## License and data source
+
+The updater script, `update_tsp_history.py`, is licensed under the
+[MIT License](LICENSE).
+
+The CSV in `data/` mirrors share prices published by the
+[Thrift Savings Plan](https://www.tsp.gov/share-price-history/).
+The repository maintainer claims no ownership of the source data.
+The MIT License covers the updater script only.
