@@ -1,4 +1,4 @@
-# TSP Share Price History
+# TSP Historical Share Prices (CSV)
 
 Historical Thrift Savings Plan (TSP) fund share prices in a public CSV for
 spreadsheets, notebooks, and other projects.
