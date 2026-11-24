@@ -5,6 +5,14 @@ spreadsheets, notebooks, and other projects.
 
 [Download the CSV](data/tsp-share-price-history.csv?raw=1)
 
+## Example analysis
+
+![Three charts comparing growth of $100, drawdowns, and annualized return and volatility for the five individual TSP funds](charts/tsp-analysis.svg)
+
+This snapshot uses published prices from June 2, 2003 through November 23,
+2026. Run the Python example below to plot growth through the latest date in
+the CSV.
+
 ## Quick start with Python
 
 With pandas installed (`python -m pip install pandas`), load the CSV directly from GitHub:
